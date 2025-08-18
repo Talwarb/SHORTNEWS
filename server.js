@@ -1,51 +1,36 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import fetch from 'node-fetch';
+import express from "express";
+import cors from "cors";
+import fetch from "node-fetch"; // Make sure node-fetch is installed
 
 const app = express();
-app.use(helmet());
+const PORT = process.env.PORT || 3000;
+
 app.use(cors());
+app.use(express.json());
 
-const PORT = process.env.PORT || 8787;
-const API_KEY = process.env.NEWSAPI_KEY || '';
+// Root route
+app.get("/", (req, res) => {
+  res.send("News Aggregator Backend is running!");
+});
 
-if (!API_KEY) {
-  console.warn('WARNING: NEWSAPI_KEY is not set. Endpoint will return upstream errors until it is configured.');
-}
+// Example API route to fetch news
+app.get("/api/news", async (req, res) => {
+  const NEWS_API_KEY = process.env.NEWS_API_KEY; // Store your key in Render environment variables
+  const { category = "general", country = "ca" } = req.query;
 
-const BASE = 'https://newsapi.org/v2/top-headlines';
-
-function toCard(a){
-  return {
-    title: a.title,
-    description: a.description,
-    url: a.url,
-    urlToImage: a.urlToImage,
-    publishedAt: a.publishedAt,
-    source: a.source
-  };
-}
-
-app.get('/health', (req, res) => res.json({ ok: true }));
-
-app.get('/api/news', async (req, res) => {
   try {
-    const category = req.query.category ? `&category=${encodeURIComponent(req.query.category)}` : '';
-    const pageSize = req.query.pageSize || 50;
-    const url = `${BASE}?country=ca${category}&pageSize=${pageSize}`;
-    const r = await fetch(url, { headers: { 'X-Api-Key': API_KEY } });
-    if (!r.ok) {
-      const text = await r.text();
-      return res.status(r.status).json({ error: 'Upstream error', status: r.status, detail: text });
-    }
-    const data = await r.json();
-    const articles = Array.isArray(data.articles) ? data.articles.map(toCard) : [];
-    res.json({ articles });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Server error' });
+    const response = await fetch(
+      `https://newsapi.org/v2/top-headlines?country=${country}&category=${category}&apiKey=${NEWS_API_KEY}`
+    );
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch news" });
   }
 });
 
-app.listen(PORT, () => console.log(`CanNews proxy running on :${PORT}`));
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
